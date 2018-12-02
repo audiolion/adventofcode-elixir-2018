@@ -96,10 +96,48 @@ defmodule Aoc.Year2018.Day02.InventoryManagementSystem do
 
   """
   def part_2(input) do
-    input
+    File.stream!(input)
+      |> Stream.map(&String.trim/1)
+      |> Enum.to_list
+      |> smallest_diff
+      |> elem(1)
+      |> Enum.join("")
   end
+
+  defp smallest_diff(words) do
+    Enum.reduce(words, {_min_diff = :infinity, _result = "", _worda = "", _wordb = ""}, fn (a, {min_diff, result, worda, wordb}) ->
+        Enum.reduce(words, {min_diff, result, worda, wordb}, fn (b, {min_diff, result, worda, wordb}) ->
+            {diff_len, diff, a, b} = diff_words(a, b)
+            case diff_len < min_diff and a != b do
+              true -> {diff_len, diff, a, b}
+              false -> {min_diff, result, worda, wordb}
+            end
+          end
+        )
+      end
+    )
+  end
+
+  def diff_words(a, b) do
+
+    {chars, diff} = Enum.reduce(0..String.length(a) - 1, {[], 0}, fn (index, {chars, diff}) ->
+        a_char = String.at(a, index)
+        b_char = String.at(b, index)
+        case a_char == b_char do
+          true -> { [a_char | chars], diff }
+          false -> { chars, diff + 1 }
+        end
+      end
+    )
+    {diff, Enum.reverse(chars), a, b}
+  end
+
+
 end
 
 
-x = Aoc.Year2018.Day02.InventoryManagementSystem.part_1(Path.expand('./input.txt'))
+x = Aoc.Year2018.Day02.InventoryManagementSystem.part_1(Path.expand("./input.txt"))
 IO.inspect x
+
+y = Aoc.Year2018.Day02.InventoryManagementSystem.part_2(Path.expand("./input-2.txt"))
+IO.inspect y
