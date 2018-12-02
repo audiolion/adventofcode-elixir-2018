@@ -139,5 +139,5 @@ end
 x = Aoc.Year2018.Day02.InventoryManagementSystem.part_1(Path.expand("./input.txt"))
 IO.inspect x
 
-y = Aoc.Year2018.Day02.InventoryManagementSystem.part_2(Path.expand("./input-2.txt"))
+y = Aoc.Year2018.Day02.InventoryManagementSystem.part_2(Path.expand("./input.txt"))
 IO.inspect y
