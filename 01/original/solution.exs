@@ -1,4 +1,4 @@
-{:ok, input} = File.read(Path.expand("./input.txt"))
+{:ok, input} = File.read(Path.expand("../input.txt"))
 data = String.split(input, "\n")
 
 sum =

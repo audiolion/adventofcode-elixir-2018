@@ -52,43 +52,49 @@ defmodule Aoc.Year2018.Day02.InventoryManagementSystem do
   """
   def part_1(input) do
     File.stream!(input)
-      |> Stream.map(&String.trim/1)
-      |> Enum.to_list
-      |> Enum.map(&count_character_occurrences/1)
-      |> Enum.map(&count_ids/1)
-      |> sum_ids
+    |> Stream.map(&String.trim/1)
+    |> Enum.to_list()
+    |> Enum.map(&count_character_occurrences/1)
+    |> Enum.map(&count_ids/1)
+    |> sum_ids
   end
 
   def sum_ids(occurences_map_list) do
-    {two_sum, three_sum} = Enum.reduce(occurences_map_list, {0, 0}, fn({two_count, three_count}, {two_sum, three_sum}) ->
+    {two_sum, three_sum} =
+      Enum.reduce(occurences_map_list, {0, 0}, fn {two_count, three_count},
+                                                  {two_sum, three_sum} ->
         {two_sum + two_count, three_sum + three_count}
-      end
-    )
+      end)
+
     two_sum * three_sum
   end
 
   def count_ids({_, occurrences_list}) do
-    Enum.reduce(occurrences_list, {0, 0}, fn (occurrence_count, {two_count, three_count}) ->
-          case occurrence_count do
-            2 -> {two_count + 1, three_count}
-            3 -> {two_count, three_count + 1}
-            _ -> {two_count, three_count}
-          end
+    Enum.reduce(occurrences_list, {0, 0}, fn occurrence_count, {two_count, three_count} ->
+      case occurrence_count do
+        2 -> {two_count + 1, three_count}
+        3 -> {two_count, three_count + 1}
+        _ -> {two_count, three_count}
       end
-    )
+    end)
   end
 
   def count_character_occurrences(string) do
     chars = String.graphemes(string)
-    {_, occurences} = Enum.reduce(chars, {nil, %{}}, fn(ch, {_, acc}) ->
-          Map.get_and_update(acc, ch, fn current_value ->
-              case is_integer(current_value) do
-                true -> {current_value, current_value + 1}
-                false -> {current_value, 1}
-              end
-            end)
-          end)
-    filtered_occurrences = MapSet.new Enum.filter(Map.values(occurences), fn x -> x == 2 or x == 3 end)
+
+    {_, occurences} =
+      Enum.reduce(chars, {nil, %{}}, fn ch, {_, acc} ->
+        Map.get_and_update(acc, ch, fn current_value ->
+          case is_integer(current_value) do
+            true -> {current_value, current_value + 1}
+            false -> {current_value, 1}
+          end
+        end)
+      end)
+
+    filtered_occurrences =
+      MapSet.new(Enum.filter(Map.values(occurences), fn x -> x == 2 or x == 3 end))
+
     {string, filtered_occurrences}
   end
 
@@ -97,17 +103,24 @@ defmodule Aoc.Year2018.Day02.InventoryManagementSystem do
   """
   def part_2(input) do
     File.stream!(input)
-      |> Stream.map(&String.trim/1)
-      |> Enum.to_list
-      |> smallest_diff
-      |> elem(1)
-      |> Enum.join("")
+    |> Stream.map(&String.trim/1)
+    |> Enum.to_list()
+    |> smallest_diff
+    |> elem(1)
+    |> Enum.join("")
   end
 
   defp smallest_diff(words) do
-    Enum.reduce(words, {_min_diff = :infinity, _result = "", _worda = "", _wordb = ""}, fn (a, {min_diff, result, worda, wordb}) ->
-        Enum.reduce(words, {min_diff, result, worda, wordb}, fn (b, {min_diff, result, worda, wordb}) ->
+    Enum.reduce(
+      words,
+      {_min_diff = :infinity, _result = "", _worda = "", _wordb = ""},
+      fn a, {min_diff, result, worda, wordb} ->
+        Enum.reduce(
+          words,
+          {min_diff, result, worda, wordb},
+          fn b, {min_diff, result, worda, wordb} ->
             {diff_len, diff, a, b} = diff_words(a, b)
+
             case diff_len < min_diff and a != b do
               true -> {diff_len, diff, a, b}
               false -> {min_diff, result, worda, wordb}
@@ -119,25 +132,23 @@ defmodule Aoc.Year2018.Day02.InventoryManagementSystem do
   end
 
   def diff_words(a, b) do
-
-    {chars, diff} = Enum.reduce(0..String.length(a) - 1, {[], 0}, fn (index, {chars, diff}) ->
+    {chars, diff} =
+      Enum.reduce(0..(String.length(a) - 1), {[], 0}, fn index, {chars, diff} ->
         a_char = String.at(a, index)
         b_char = String.at(b, index)
+
         case a_char == b_char do
-          true -> { [a_char | chars], diff }
-          false -> { chars, diff + 1 }
+          true -> {[a_char | chars], diff}
+          false -> {chars, diff + 1}
         end
-      end
-    )
+      end)
+
     {diff, Enum.reverse(chars), a, b}
   end
-
-
 end
 
-
 x = Aoc.Year2018.Day02.InventoryManagementSystem.part_1(Path.expand("./input.txt"))
-IO.puts x
+IO.puts(x)
 
 y = Aoc.Year2018.Day02.InventoryManagementSystem.part_2(Path.expand("./input.txt"))
-IO.puts y
+IO.puts(y)

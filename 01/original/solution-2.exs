@@ -1,4 +1,4 @@
-{:ok, input} = File.read(Path.expand("./input-2.txt"))
+{:ok, input} = File.read(Path.expand("../input-reid.txt"))
 data = String.split(input, "\n", [])
 
 defmodule AOC.Day1 do
@@ -7,22 +7,27 @@ defmodule AOC.Day1 do
 
     Enum.reduce_while(
       stream,
-      %{frequency: 0, frequencies: MapSet.new()},
+      %{frequency: 0, frequencies: MapSet.new(), loops: 0},
       fn x,
          %{
            frequency: frequency,
-           frequencies: frequencies
+           frequencies: frequencies,
+           loops: loops
          } ->
         {num, _} = Integer.parse(x)
         next_frequency = num + frequency
 
         case MapSet.member?(frequencies, next_frequency) do
           true ->
-            {:halt, next_frequency}
+            {:halt, next_frequency, loops}
 
           false ->
             {:cont,
-             %{frequency: next_frequency, frequencies: MapSet.put(frequencies, next_frequency)}}
+             %{
+               frequency: next_frequency,
+               frequencies: MapSet.put(frequencies, next_frequency),
+               loops: loops + 1
+             }}
         end
       end
     )
