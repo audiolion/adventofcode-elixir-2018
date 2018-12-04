@@ -10,6 +10,25 @@ defmodule SneakStrategy do
     # multiple repeated number by guard id
   end
 
+  def extract_log(str) do
+    %{"dt" => dt} = Regex.named_captures(~r/\[(?<dt>.*)\].*?/, str, [:first])
+
+    guard_id =
+      if Regex.match?(~r/.*(?<guard_id>#[\d]+).*?/, str) do
+        %{"guard_id" => guard_id} =
+          Regex.named_captures(~r/.*(?<guard_id>#[\d]+).*?/, str, [:first])
+
+        guard_id
+      else
+        ""
+      end
+
+    dt = String.replace(dt, " ", "T00:") <> "Z"
+    {:ok, datetime, _} = DateTime.from_iso8601(dt)
+    IO.inspect({datetime, guard_id})
+    {datetime, guard_id}
+  end
+
   def strategy_two() do
   end
 end
@@ -22,6 +41,18 @@ case System.argv() do
       use ExUnit.Case
 
       import SneakStrategy
+
+      test "extract datetime" do
+        {:ok, dt, _} = DateTime.from_iso8601("1518-11-01T00:00:25Z")
+        assert SneakStrategy.extract_log("[1518-11-01 00:25] wakes up") == {dt, nil}
+      end
+
+      test "extract guard id" do
+        {:ok, dt, _} = DateTime.from_iso8601("1518-11-01T00:00:25Z")
+
+        assert SneakStrategy.extract_log("[1518-11-01 00:25] guard #12 shift begins") ==
+                 {dt, "#12"}
+      end
 
       test "strategy_one" do
         assert SneakStrategy.strategy_one(
