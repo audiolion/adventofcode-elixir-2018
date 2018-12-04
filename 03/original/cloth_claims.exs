@@ -74,7 +74,7 @@ case System.argv() do
   ["--test"] ->
     ExUnit.start()
 
-    defmodule Day2Test do
+    defmodule Day3Test do
       use ExUnit.Case
 
       import ClothClaims
