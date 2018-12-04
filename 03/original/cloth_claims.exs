@@ -44,16 +44,21 @@ defmodule ClothClaims do
   end
 
   def find_isolated_claim(fabric) do
-    claimset =
+    claimed =
       Enum.reduce(Map.values(fabric), MapSet.new(), fn ids, seen ->
         if length(ids) == 1 do
-          MapSet.put(seen, List.first(ids))
+          seen
         else
-          Enum.reduce(ids, seen, fn id, acc -> MapSet.delete(acc, id) end)
+          Enum.reduce(ids, seen, fn id, acc -> MapSet.put(acc, id) end)
         end
       end)
 
-    List.first(MapSet.to_list(claimset))
+    all =
+      Enum.reduce(Map.values(fabric), MapSet.new(), fn ids, seen ->
+        Enum.reduce(ids, seen, fn id, acc -> MapSet.put(acc, id) end)
+      end)
+
+    List.first(MapSet.to_list(MapSet.difference(all, claimed)))
   end
 
   def isolated_claim(input) do
