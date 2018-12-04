@@ -3,7 +3,8 @@ defmodule ClothClaims do
     input
     |> String.split("\n", trim: true)
     |> Enum.map(&parse_claim_id(&1))
-    |> make_claims(%{})
+    |> make_claims(initialize_fabric(1))
+    |> count_common_claims()
   end
 
   def parse_claim_id(str) do
@@ -16,48 +17,51 @@ defmodule ClothClaims do
   end
 
   def make_claims([_claim = {id, left, top, width, height} | claims], fabric) do
-    IO.inspect({id, left, top, width, height})
-    IO.inspect(fabric)
-
-    new_fabric =
-      Enum.reduce(left..(left + width), fabric, fn x, fabric ->
-        fabric =
-          if fabric[x] == nil do
-            Map.put(fabric, x, %{})
-          end
-
-        Enum.reduce(top..(top + height), fabric, fn y, fabric ->
-          IO.puts(Integer.to_string(x) <> " " <> Integer.to_string(y))
-          IO.inspect(fabric[x])
-
-          new_fabric =
-            case fabric[x][y] do
-              nil ->
-                put_in(fabric[x][y], ".")
-
-              "." ->
-                put_in(fabric[x][y], "X")
-
-                # ^id -> put_in(fabric[x][y], id)
-                # _ -> put_in(fabric[x][y], "X")
-            end
-
-          new_fabric
+    updated_fabric =
+      Enum.reduce(left..(left + width - 1), fabric, fn x, fabric ->
+        Enum.reduce(top..(top + height - 1), fabric, fn y, fabric ->
+          Map.update(fabric, {x, y}, [id], fn ids -> [id | ids] end)
         end)
       end)
 
-    make_claims(claims, new_fabric)
+    make_claims(claims, updated_fabric)
   end
 
   def make_claims([], fabric) do
-    Enum.reduce(Map.keys(fabric), 0, fn row, acc ->
-      overlap =
-        Map.values(Map.get(fabric, row))
-        |> Enum.filter(fn x -> x == "X" end)
-        |> length()
+    fabric
+  end
 
-      acc + overlap
+  def count_common_claims(fabric) do
+    Enum.count(Map.values(fabric), fn ids -> length(ids) > 1 end)
+  end
+
+  def initialize_fabric(size) do
+    Enum.reduce(1..size, %{}, fn x, fabric ->
+      Enum.reduce(1..size, fabric, fn y, fabric ->
+        Map.put(fabric, {x, y}, [])
+      end)
     end)
+  end
+
+  def find_isolated_claim(fabric) do
+    claimset =
+      Enum.reduce(Map.values(fabric), MapSet.new(), fn ids, seen ->
+        if length(ids) == 1 do
+          MapSet.put(seen, List.first(ids))
+        else
+          Enum.reduce(ids, seen, fn id, acc -> MapSet.delete(acc, id) end)
+        end
+      end)
+
+    List.first(MapSet.to_list(claimset))
+  end
+
+  def isolated_claim(input) do
+    input
+    |> String.split("\n", trim: true)
+    |> Enum.map(&parse_claim_id(&1))
+    |> make_claims(initialize_fabric(1))
+    |> find_isolated_claim()
   end
 end
 
@@ -164,7 +168,12 @@ case System.argv() do
     input_file
     |> File.read!()
     |> ClothClaims.common_claims()
-    |> IO.inspect()
+    |> IO.puts()
+
+    input_file
+    |> File.read!()
+    |> ClothClaims.isolated_claim()
+    |> IO.puts()
 
   _ ->
     IO.puts(:stderr, "expected test or an input file")
