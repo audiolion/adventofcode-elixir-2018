@@ -5,6 +5,21 @@ defmodule AlchemistReduction do
     |> reduction()
   end
 
+  def part_two(input) do
+    units =
+      Enum.map(MapSet.new(String.codepoints(String.downcase(input))), fn x ->
+        [x, String.upcase(x)]
+      end)
+
+    Enum.map(units, fn units ->
+      String.replace(input, units, "")
+      |> String.codepoints()
+      |> reduction()
+      |> String.length()
+    end)
+    |> Enum.min()
+  end
+
   def reduction([ch1 | chs]) do
     {polymer, last_char} =
       Enum.reduce(chs, {[], _prev = ch1}, fn next, {acc, prev} ->
@@ -50,18 +65,18 @@ case System.argv() do
     end
 
   [input_file] ->
-    t =
-      input_file
-      |> File.read!()
-      |> String.trim()
-      |> AlchemistReduction.part_one()
+    # input_file
+    # |> File.read!()
+    # |> String.trim()
+    # |> AlchemistReduction.part_one()
+    # |> String.length()
+    # |> IO.puts()
 
-    IO.puts(String.length(t))
-
-  # input_file
-  # |> File.read!()
-  # |> AlchemistReduction.part_two()
-  # |> IO.puts()
+    input_file
+    |> File.read!()
+    |> String.trim()
+    |> AlchemistReduction.part_two()
+    |> IO.puts()
 
   _ ->
     IO.puts(:stderr, "expected test or an input file")
