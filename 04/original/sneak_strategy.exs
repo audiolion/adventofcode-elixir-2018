@@ -1,18 +1,15 @@
 defmodule SneakStrategy do
   def strategy_one(input) do
-    input
-    |> String.split("\n", trim: true)
-    |> Enum.map(&parse_log(&1))
-    |> Enum.sort()
-    |> create_guard_sleep_map()
-    |> sleepiest_guard()
-    |> sleepiest_minute()
+    {sleepiest_guard_id, sleep_minute, _} =
+      input
+      |> String.split("\n", trim: true)
+      |> Enum.map(&parse_log(&1))
+      |> Enum.sort()
+      |> create_guard_sleep_map()
+      |> sleepiest_guard()
+      |> sleepiest_minute()
 
-    # extract date, sort by date
-    # map guard ID key, value of minutes asleep [22, 23, 24, 24, 30, 31]
-    # choose guard ID with highest sum of minutes asleep value
-    # find most repeated number in list
-    # multiple repeated number by guard id
+    "Sleepiest Guard: " <> sleepiest_guard_id <> " at minute: " <> Integer.to_string(sleep_minute)
   end
 
   def parse_log(log) do
@@ -122,15 +119,18 @@ defmodule SneakStrategy do
     end
   end
 
-  def sleepiest_minute({sleep_times, sleepiest_guard_id}) do
-    sleep_frequencies =
-      Enum.reduce(elem(Map.get(sleep_times, sleepiest_guard_id), 1), %{}, fn x, acc ->
-        Enum.reduce(x, acc, fn x, acc -> Map.update(acc, x, 1, &(&1 + 1)) end)
-      end)
+  def sleep_frequencies(sleep_times, guard_id) do
+    Enum.reduce(elem(Map.get(sleep_times, guard_id), 1), %{}, fn x, acc ->
+      Enum.reduce(x, acc, fn x, acc -> Map.update(acc, x, 1, &(&1 + 1)) end)
+    end)
+  end
 
-    {_, sleep_minute} =
-      Enum.reduce(Map.keys(sleep_frequencies), {0, -1}, fn x, {acc, min} ->
-        count = Map.get(sleep_frequencies, x)
+  def sleepiest_minute({sleep_times, sleepiest_guard_id}) do
+    frequencies = sleep_frequencies(sleep_times, sleepiest_guard_id)
+
+    {count, sleep_minute} =
+      Enum.reduce(Map.keys(frequencies), {0, -1}, fn x, {acc, min} ->
+        count = Map.get(frequencies, x)
 
         if count > acc do
           {count, x}
@@ -139,10 +139,38 @@ defmodule SneakStrategy do
         end
       end)
 
-    "Sleepiest Guard: " <> sleepiest_guard_id <> " at minute: " <> Integer.to_string(sleep_minute)
+    {sleepiest_guard_id, sleep_minute, count}
   end
 
-  def strategy_two() do
+  def strategy_two(input) do
+    {sleep_times, _} =
+      input
+      |> String.split("\n", trim: true)
+      |> Enum.map(&parse_log(&1))
+      |> Enum.sort()
+      |> create_guard_sleep_map()
+      |> sleepiest_guard()
+
+    sleep_minute_freqs =
+      Enum.map(Map.keys(sleep_times), fn guard_id ->
+        sleepiest_minute({sleep_times, guard_id})
+      end)
+
+    # IO.inspect(sleep_minute_freqs)
+
+    {id, minute, count} =
+      Enum.reduce(sleep_minute_freqs, {nil, nil, 0}, fn {guard_id, minute, count},
+                                                        {sleepiest_guard_id, sleepiest_minute,
+                                                         sleepiest_count} ->
+        if count > sleepiest_count do
+          {guard_id, minute, count}
+        else
+          {sleepiest_guard_id, sleepiest_minute, sleepiest_count}
+        end
+      end)
+
+    "Guard: " <>
+      id <> " Minute: " <> Integer.to_string(minute) <> " Count: " <> Integer.to_string(count)
   end
 end
 
@@ -201,10 +229,10 @@ case System.argv() do
     |> SneakStrategy.strategy_one()
     |> IO.puts()
 
-  # input_file
-  # |> File.read!()
-  # |> SneakStrategy.strategy_two()
-  # |> IO.puts()
+    input_file
+    |> File.read!()
+    |> SneakStrategy.strategy_two()
+    |> IO.puts()
 
   _ ->
     IO.puts(:stderr, "expected test or an input file")
