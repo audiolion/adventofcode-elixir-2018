@@ -18,12 +18,13 @@ defmodule SneakStrategy do
   def parse_log(log) do
     if String.contains?(log, "#") do
       %{"dt" => datetime, "guard_id" => guard_id} =
-        Regex.named_captures(~r/\[(?<dt>.*)\].*(?<guard_id>#[\d])/, log)
+        Regex.named_captures(~r/\[(?<dt>.*)\].*(?<guard_id>#[\d]+)/, log)
 
-      {DateTime.from_iso8601(String.replace(datetime, " ", "T") <> "Z"), guard_id, "starts"}
+      # {DateTime.from_iso8601(String.replace(datetime, " ", "T") <> "Z"), guard_id, "starts"}
+      {datetime, guard_id, "starts"}
     else
       [_, date, time, type, _] = String.split(log, ["[", "] ", " "])
-      {date <> "T" <> time <> "Z", "", type}
+      {date <> " " <> time, "", type}
     end
   end
 
@@ -37,7 +38,8 @@ defmodule SneakStrategy do
             guard_id
           end
 
-        {Map.update(acc, guard_id, [{datetime, type}], &[{datetime, type} | &1]), guard_id}
+        {Map.update(acc, guard_id, [{datetime, type, []}], &[{datetime, type, []} | &1]),
+         guard_id}
       end)
 
     Enum.reduce(Map.keys(guard_sleep_map), %{}, fn guard_id, acc ->
@@ -50,75 +52,94 @@ defmodule SneakStrategy do
   end
 
   def sleepiest_guard(guards) do
-    IO.inspect(guards)
-
     guard_sleep_sums =
       Enum.reduce(Map.keys(guards), %{}, fn guard_id, acc ->
-        sleep =
+        {sleep, _, _, sleep_mins} =
           Map.get(guards, guard_id)
-          |> sum_sleep()
+          |> sum_sleep(0)
 
-        IO.inspect({guard_id, sleep})
-        Map.put(acc, guard_id, sleep)
+        Map.put(acc, guard_id, {sleep, sleep_mins})
       end)
 
-    # {{sleepiest_guard_id, total_sleep}, _} =
-    #   Enum.reduce(
-    #     guards,
-    #     {{"0", 0}, guards},
-    #     fn guard_id, {{sleepiest_guard_id, total_sleep}, guards} ->
-    #       IO.inspect(guards)
-    #       sleep = Enum.sum(Map.get(guards, guard_id))
+    sleepiest_guard_id =
+      Enum.reduce(Map.keys(guard_sleep_sums), nil, fn guard_id, sleepiest_guard_id ->
+        {sleep, _} = Map.get(guard_sleep_sums, guard_id)
+        {curr_sleepiest, _} = Map.get(guard_sleep_sums, sleepiest_guard_id, {0, 0})
 
-    #       if sleep > total_sleep do
-    #         {{guard_id, sleep}, guards}
-    #       else
-    #         {{sleepiest_guard_id, total_sleep}, guards}
-    #       end
-    #     end
-    #   )
+        if sleepiest_guard_id == nil || sleep > curr_sleepiest do
+          guard_id
+        else
+          sleepiest_guard_id
+        end
+      end)
 
-    # {sleepiest_guard_id, total_sleep, _sleep_times = Map.get(guards, sleepiest_guard_id)}
+    {guard_sleep_sums, sleepiest_guard_id}
   end
 
-  def sum_sleep([{datetime, type} | rest], sum \\ 0) do
-    {psum, pdatetime, ptype} = sum_sleep(rest, sum)
+  def sum_sleep([{datetime, type, sleeps} | []], sum) do
+    {sum, datetime, type, sleeps}
+  end
 
-    case type do
-      "falls" ->
+  def sum_sleep([{datetime, type, _} | rest], sum) do
+    {psum, pdatetime, ptype, psleeps} = sum_sleep(rest, sum)
+
+    [date, time] = String.split(datetime, " ")
+    [pdate, ptime] = String.split(pdatetime, " ")
+
+    [_, minute] = String.split(time, ":")
+    [_, pminute] = String.split(ptime, ":")
+
+    minute = String.to_integer(minute)
+    pminute = String.to_integer(pminute)
+
+    different_day =
+      case Date.compare(elem(Date.from_iso8601(date), 1), elem(Date.from_iso8601(pdate), 1)) do
+        :eq -> false
+        _ -> true
+      end
+
+    if type == "falls" do
+      if different_day do
+        mins_asleep =
+          Time.diff(elem(Time.from_iso8601("01:00:00"), 1), elem(Time.from_iso8601(time), 1))
+
+        {sum + psum + mins_asleep, datetime, type, [minute..59 | psleeps]}
+      else
         if ptype === "wakes" do
-          {sum + psum +
-             DateTime.diff(DateTime.from_iso8601(pdatetime), DateTime.from_iso8601(datetime)),
-           datetime, type}
-        else
-          {sum + psum +
-             DateTime.diff(
-               DateTime.from_iso8601(add_day(datetime) <> "T00:00:00Z"),
-               DateTime.from_iso8601(datetime)
-             ), datetime, type}
-        end
+          mins_asleep =
+            Time.diff(
+              elem(Time.from_iso8601(ptime <> ":00"), 1),
+              elem(Time.from_iso8601(time <> ":00"), 1)
+            ) / 60
 
-      _ ->
-        {sum + psum, datetime, type}
+          {sum + psum + mins_asleep, datetime, type, [minute..(pminute - 1) | psleeps]}
+        else
+          {sum + psum, datetime, type, psleeps}
+        end
+      end
+    else
+      {sum + psum, datetime, type, psleeps}
     end
   end
 
-  def add_day(datetime) do
-    [year, month, day, _] = String.split(datetime, " ", "-")
-    day = Integer.to_string(String.to_integer(day) + 1)
-    Enum.join([year, month, day], "-")
-  end
-
-  def sum_sleep([{datetime, type} | []], sum) do
-    {sum, datetime, type}
-  end
-
-  def sleepiest_minute({sleepiest_guard_id, _, sleep_times}) do
+  def sleepiest_minute({sleep_times, sleepiest_guard_id}) do
     sleep_frequencies =
-      Enum.reduce(sleep_times, fn x, acc -> Map.update(acc, x, 1, &(&1 + 1)) end)
+      Enum.reduce(elem(Map.get(sleep_times, sleepiest_guard_id), 1), %{}, fn x, acc ->
+        Enum.reduce(x, acc, fn x, acc -> Map.update(acc, x, 1, &(&1 + 1)) end)
+      end)
 
-    "Sleepiest Guard: " <>
-      sleepiest_guard_id <> " at minute: " <> Enum.max(Map.values(sleep_frequencies), 0)
+    {_, sleep_minute} =
+      Enum.reduce(Map.keys(sleep_frequencies), {0, -1}, fn x, {acc, min} ->
+        count = Map.get(sleep_frequencies, x)
+
+        if count > acc do
+          {count, x}
+        else
+          {acc, min}
+        end
+      end)
+
+    "Sleepiest Guard: " <> sleepiest_guard_id <> " at minute: " <> Integer.to_string(sleep_minute)
   end
 
   def strategy_two() do
